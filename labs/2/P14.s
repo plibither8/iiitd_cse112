@@ -1,9 +1,9 @@
 main:
-	mov		r1, #0xdb	@ Main number for which groups of 1's have to be calculated
+	mov		r1, #0b11011011	@ Main number for which groups of 1's have to be calculated
 	mov		r0, #0		@ Loop variable
 	mov		r2, #0		@ Stores the number of 1's
 	mov		r4, #0		@ Stores previous digit of number
-	b		P14		@ Branch directly to loop
+	b		P14			@ Branch directly to P14 (the loop)
 	swi		0x11		@ Exit the program
 
 check2:
@@ -23,4 +23,4 @@ P14:
 	mov		r4, r3		@ Store the current r3 value in r4 for later possible use
 	add		r0, r0, #1	@ Increment the loop variable
 	cmp		r0, #32		@ Check whether the loop has run 32 times (number of digits)
-	ble		loop		@ If <= 32, loop!
+	ble		P14			@ If <= 32, loop!
