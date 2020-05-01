@@ -13,7 +13,7 @@ main:
 P09:
 	stmfd	sp!, {r4-r7, lr}
 	adds	r9, r5, r7
-	adc		r8, r4, r6
+	adcs	r8, r4, r6
 	ldmfd	sp!, {r4-r7, pc}
 	bx		lr
 
@@ -26,6 +26,6 @@ P10:							@ procedure named "P10", starts with immediate execution
 	bl		P09					@ branch with link to procedure named P09
 	mov		r10, r9				@ copy the value in r9 to r10
 	mov		r9, r8				@ copy the value in r8 to r9
-	adc		r8, r2, r1			@ add values in r2, r1 along with carry from previous addition and store in r8
+	adcs	r8, r2, r1			@ add values in r2, r1 along with carry from previous addition and store in r8
 	ldmfd	sp!, {r2-r7, pc}	@ pop the arguments from the stack into the mentioned registers
 	bx		r0					@ branch back to the main procedure
