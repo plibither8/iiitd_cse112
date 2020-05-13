@@ -12,7 +12,8 @@ Any programming language (of your choice) can be used.
 
 ### Additional points
 
-* Inputs: S, CL, B, n
+* Inputs: CL, B, n
+  * S = CL * B so it is not taken as an input
   * For Read: Address
   * Write: Address, Data
 
