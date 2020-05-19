@@ -5,7 +5,7 @@ const { log2 } = Math;
 
 // constant declared after user input
 const WORD_SIZE = Number(readline.question('Word size: ')); // 32 for a 32-bit architecture
-const CACHE_SIZE = Number(readline.question('Cache size (KB): ')) * 2**10; // 
+const CACHE_SIZE = Number(readline.question('Cache size (KB): ')) * 2**10; //
 const BLOCK_SIZE = Number(readline.question('Block size (Bytes): '));
 
 // choosing cache policy
@@ -35,6 +35,7 @@ switch(Number(readline.question('Enter choice: '))) {
 // derived values:
 const CACHE_LINES	= CACHE_SIZE / BLOCK_SIZE;
 const SET_COUNT		= CACHE_LINES / WAYS;
+const TOTAL_CELLS	= CACHE_LINES / BLOCK_SIZE * 8;
 
 // holds log 2 values of some quantities
 const LOG_2 = {
@@ -51,19 +52,21 @@ const ARRAYS = {
 };
 
 // randomly generate block address when requested
-const generateBlockAddress = () => {
+const generateCellAddress = () => {
 	const rand32BitInt = crypto.randomBytes(WORD_SIZE / 8).readUInt32BE(0);
 	const binary32Bit = rand32BitInt
 		.toString(2)
-		.padStart(32, '0')
-		.substr(0, 26);
+		.substr(0, 31)
+		.padStart(32, '0');
 	return parseInt(binary32Bit, 2);
 }
 
 // get a block address' index and tag
 const getAddressParts = address => ({
-	index: (address % SET_COUNT) * WAYS,
-	tag: address >> LOG_2.setCount
+	block: address >> LOG_2.blockSize,
+	tag: address >> (LOG_2.setCount + LOG_2.blockSize),
+	index: ((address >> LOG_2.blockSize) % SET_COUNT) * WAYS,
+	offset: address % BLOCK_SIZE
 });
 
 // get the set from index to index + WAYS
@@ -96,7 +99,6 @@ const getReplacementCandidate = index => {
 
 	let replacementCandidateLine = 0;
 	set.forEach((data, i) => {
-
 		if (data.time < set[replacementCandidateLine].time) {
 			replacementCandidateLine = i;
 		}
@@ -105,43 +107,78 @@ const getReplacementCandidate = index => {
 	return index + replacementCandidateLine;
 }
 
+const stringify = data => {
+	const bytes = [];
+	let currentEmptySlots = 0;
+
+	for (let i = 0; i < data.length; i++) {
+		const byte = data[i];
+
+		if (byte === undefined) {
+			currentEmptySlots++;
+			continue;
+		}
+
+		if (currentEmptySlots !== 0) {
+			bytes.push(`<${currentEmptySlots} bytes>`);
+		}
+
+		currentEmptySlots = 0;
+		bytes.push(byte);
+	}
+
+	if (currentEmptySlots !== 0) {
+		bytes.push(`<${currentEmptySlots} bytes>`);
+	}
+
+	return bytes.join(', ');
+}
+
 // list of operations on the cache
 const operations = {
 	// insert data into cache at address (optional)
 	insert: (data, address) => {
 		// either specified address or generate random
-		const blockAddress = address || generateBlockAddress();
-		const { tag, index } = getAddressParts(blockAddress); // get tag and index
+		const cellAddress = address || generateCellAddress();
+		const { tag, index, offset, block: blockAddress } = getAddressParts(cellAddress); // get tag and index
 
-		console.log(`Inserting ${data} at block address ${hexa(blockAddress)}, index = ${index}`);
-
-		let targetLine;
+		console.log(`\nInserting ${data} at block of address ${hexa(cellAddress)}, index = ${index}`);
 
 		// check whether index is full
 		if (isSetFull(index)) {
-			console.log(`Set at index ${index} is full, finding replacement candidate...`)
+			console.log(`\nSet at index ${index} is full, finding replacement candidate...`)
 
 			// find replacement candidate
 			const replacementCandidateLine = getReplacementCandidate(index);
-			console.log(`Replacing tag ${hexa(ARRAYS.tag[replacementCandidateLine])} at line ${replacementCandidateLine}`)
+			console.log(`\nReplacing tag ${hexa(ARRAYS.tag[replacementCandidateLine])} at line ${replacementCandidateLine}`)
 
 			operations.evict(replacementCandidateLine); // evict block from cache
 		}
+
+		let targetLine;
+		let block = Array(BLOCK_SIZE);
 
 		// loop through set to find empty slot
 		for (targetLine = index; targetLine < index + WAYS; targetLine++) {
 			if (ARRAYS.tag[targetLine] === undefined) {
 				break;
 			}
+			if (ARRAYS.data[targetLine].address === blockAddress) {
+				block = ARRAYS.data[targetLine].block;
+				break;
+			}
 		}
+
+		block[offset] = data;
 
 		ARRAYS.tag[targetLine] = tag; // set tag
 		ARRAYS.data[targetLine] = {
-			data, 				// set data
+			address: blockAddress,
+			block, 				// set data
 			time: Date.now() 	// timestamp for LRU replacement
 		}
 
-		console.log(`${data} @ ${hexa(blockAddress)} inserted!\n`)
+		console.log(`${data} @ ${hexa(cellAddress)} inserted!\n`)
 	},
 
 	// evict by marking slots as undefined
@@ -153,24 +190,25 @@ const operations = {
 	// read data from address
 	read: address => {
 		const targetLine = getLineInCache(address);
+		const { offset } = getAddressParts(address);
 
 		// if cache of block is not present, cache miss!
 		if (!targetLine) {
-			console.log(`CACHE MISS, address ${hexa(address)} not found!\n`);
+			console.log(`\nCACHE MISS, address ${hexa(address)} not found!\n`);
 			return;
 		}
 
 		// print data
-		console.log(`Data @ ${address} = ${ARRAYS.data[targetLine].data}\n`);
+		console.log(`\nData @ ${address} = ${ARRAYS.data[targetLine].block[offset]}\n`);
 	},
 
 	// update data at line so and so
-	update: (data, line) => {
-		console.log(`Updating data on line ${line} of cache to ${data}\n`);
-		ARRAYS.data[line] = {
-			data,
-			time: Date.now()
-		};
+	update: (data, line, address) => {
+		console.log(`\Updating data at address ${hexa(address)} of cache to ${data}\n`);
+
+		const { offset } = getAddressParts(address);
+		ARRAYS.data[line].block[offset] = data;
+		ARRAYS.data[line].time = Date.now();
 	},
 
 	// write data to address
@@ -179,27 +217,27 @@ const operations = {
 
 		// if cache of block is not present, cache miss!
 		if (!targetLine) {
-			console.log(`CACHE MISS, address ${hexa(address)} not found!`);
+			console.log(`\nCACHE MISS, address ${hexa(address)} not found!`);
 			operations.insert(data, address);
 			return;
 		}
 
-		console.log(`CACHE HIT @ ${hexa(address)}!`);
-		operations.update(data, targetLine); // cache hit, update data
+		console.log(`\nCACHE HIT @ ${hexa(address)}!`);
+		operations.update(data, targetLine, address); // cache hit, update data
 	},
 
 	// print table of cache with the following headings
 	display: () => {
 		const tableData = [
-			['Address', 'Tag', 'Index', 'Line', 'Data']
+			['Block address', 'Tag', 'Index', 'Line', 'Block data']
 		];
 
 		ARRAYS.tag.forEach((tag, line) => {
 			if (tag !== undefined) {
 				const index = Math.floor(line / WAYS) * WAYS;
 				// back calculate the address using tag and line (super hacky i think)
-				const address = (tag << LOG_2.setCount) + Math.floor(line / WAYS);
-				const data = ARRAYS.data[line].data;
+				const address = ARRAYS.data[line].address;
+				const data = stringify(ARRAYS.data[line].block);
 
 				tableData.push([
 					hexa(address),
@@ -211,6 +249,7 @@ const operations = {
 			}
 		});
 
+		console.log();
 		console.log(table(tableData));
 	}
 }
