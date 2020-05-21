@@ -53,12 +53,12 @@ const ARRAYS = {
 
 // randomly generate block address when requested
 const generateCellAddress = () => {
-	const rand32BitInt = crypto.randomBytes(WORD_SIZE / 8).readUInt32BE(0);
-	const binary32Bit = rand32BitInt
+	const randomInt = crypto.randomBytes(WORD_SIZE / 8).readUIntBE(0, WORD_SIZE / 8);
+	const binaryBits = randomInt
 		.toString(2)
-		.substr(0, 31)
-		.padStart(32, '0');
-	return parseInt(binary32Bit, 2);
+		.substr(0, WORD_SIZE - 1)
+		.padStart(WORD_SIZE, '0');
+	return parseInt(binaryBits, 2);
 }
 
 // get a block address' index and tag
@@ -197,6 +197,8 @@ const operations = {
 			console.log(`\nCACHE MISS, address ${hexa(address)} not found!\n`);
 			return;
 		}
+
+		ARRAYS.data[targetLine].time = Date.now();
 
 		// print data
 		console.log(`\nData @ ${address} = ${ARRAYS.data[targetLine].block[offset]}\n`);
