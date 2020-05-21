@@ -3,8 +3,15 @@ const readline = require('readline-sync');
 const { table } = require('table');
 const { log2 } = Math;
 
+console.log(`Select number system:
+  1. Hexadecimal
+  2. Binary
+  3. Decimal
+`);
+const NUMBER_BASE = Number(readline.question('Enter choice: '));
+
 // constant declared after user input
-const WORD_SIZE = Number(readline.question('Word size: ')); // 32 for a 32-bit architecture
+const WORD_SIZE = Number(readline.question('\nWord size: ')); // 32 for a 32-bit architecture
 const CACHE_SIZE = Number(readline.question('Cache size (KB): ')) * 2**10; //
 const BLOCK_SIZE = Number(readline.question('Block size (Bytes): '));
 
@@ -75,8 +82,14 @@ const getSet = (index, arr) => ARRAYS[arr].slice(index, index + WAYS);
 // check whether the set is full
 const isSetFull = index => !getSet(index, 'tag').includes(undefined);
 
-// return hexadecimal string of base 10 address
-const hexa = address => '0x' + address.toString(16);
+// return numberFormatdecimal string of base 10 address
+const numberFormat = address => {
+	switch(NUMBER_BASE) {
+		case 1: return '0x' + address.toString(16);
+		case 2: return address.toString(2);
+		case 3: default: return address;
+	}
+};
 
 // return the line in cache of the address, otherwise undefined
 const getLineInCache = address => {
@@ -142,7 +155,7 @@ const operations = {
 		const cellAddress = address || generateCellAddress();
 		const { tag, index, offset, block: blockAddress } = getAddressParts(cellAddress); // get tag and index
 
-		console.log(`\nInserting ${data} at block of address ${hexa(cellAddress)}, index = ${index}`);
+		console.log(`\nInserting ${data} at block of address ${numberFormat(cellAddress)}, index = ${index}`);
 
 		// check whether index is full
 		if (isSetFull(index)) {
@@ -150,7 +163,7 @@ const operations = {
 
 			// find replacement candidate
 			const replacementCandidateLine = getReplacementCandidate(index);
-			console.log(`\nReplacing tag ${hexa(ARRAYS.tag[replacementCandidateLine])} at line ${replacementCandidateLine}`)
+			console.log(`\nReplacing tag ${numberFormat(ARRAYS.tag[replacementCandidateLine])} at line ${replacementCandidateLine}`)
 
 			operations.evict(replacementCandidateLine); // evict block from cache
 		}
@@ -178,7 +191,7 @@ const operations = {
 			time: Date.now() 	// timestamp for LRU replacement
 		}
 
-		console.log(`${data} @ ${hexa(cellAddress)} inserted!\n`)
+		console.log(`${data} @ ${numberFormat(cellAddress)} inserted!\n`)
 	},
 
 	// evict by marking slots as undefined
@@ -194,7 +207,7 @@ const operations = {
 
 		// if cache of block is not present, cache miss!
 		if (!targetLine) {
-			console.log(`\nCACHE MISS, address ${hexa(address)} not found!\n`);
+			console.log(`\nCACHE MISS, address ${numberFormat(address)} not found!\n`);
 			return;
 		}
 
@@ -206,7 +219,7 @@ const operations = {
 
 	// update data at line so and so
 	update: (data, line, address) => {
-		console.log(`\Updating data at address ${hexa(address)} of cache to ${data}\n`);
+		console.log(`\Updating data at address ${numberFormat(address)} of cache to ${data}\n`);
 
 		const { offset } = getAddressParts(address);
 		ARRAYS.data[line].block[offset] = data;
@@ -219,12 +232,12 @@ const operations = {
 
 		// if cache of block is not present, cache miss!
 		if (!targetLine) {
-			console.log(`\nCACHE MISS, address ${hexa(address)} not found!`);
+			console.log(`\nCACHE MISS, address ${numberFormat(address)} not found!`);
 			operations.insert(data, address);
 			return;
 		}
 
-		console.log(`\nCACHE HIT @ ${hexa(address)}!`);
+		console.log(`\nCACHE HIT @ ${numberFormat(address)}!`);
 		operations.update(data, targetLine, address); // cache hit, update data
 	},
 
@@ -242,8 +255,8 @@ const operations = {
 				const data = stringify(ARRAYS.data[line].block);
 
 				tableData.push([
-					hexa(address),
-					tag,
+					numberFormat(address),
+					numberFormat(tag),
 					index,
 					line,
 					data
@@ -269,13 +282,13 @@ Select operation:
 `);
 		switch (Number(readline.question('Enter choice: '))) {
 			case 1: {
-				const address = parseInt(readline.question('Enter address (hexa): '), 16);
+				const address = parseInt(readline.question('Enter address (numberFormat): '), 16);
 				operations.read(address);
 				break;
 			}
 
 			case 2: {
-				const address = parseInt(readline.question('Enter address (hexa): '), 16);
+				const address = parseInt(readline.question('Enter address (numberFormat): '), 16);
 				const data = Number(readline.question('Enter data: '));
 				operations.write(data, address);
 				break;
