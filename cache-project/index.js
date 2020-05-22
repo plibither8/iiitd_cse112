@@ -282,13 +282,13 @@ Select operation:
 `);
 		switch (Number(readline.question('Enter choice: '))) {
 			case 1: {
-				const address = parseInt(readline.question('Enter address (numberFormat): '), 16);
+				const address = parseInt(readline.question('Enter address (hexa): '), 16);
 				operations.read(address);
 				break;
 			}
 
 			case 2: {
-				const address = parseInt(readline.question('Enter address (numberFormat): '), 16);
+				const address = parseInt(readline.question('Enter address (hexa): '), 16);
 				const data = Number(readline.question('Enter data: '));
 				operations.write(data, address);
 				break;
